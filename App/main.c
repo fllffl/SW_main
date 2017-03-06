@@ -108,7 +108,7 @@ void  main(void)
 
 		//发送图像到上位机
 		sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
-		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 		LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
 		// unsigned char * bmp;
 
