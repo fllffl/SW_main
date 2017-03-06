@@ -101,19 +101,20 @@ void  main(void)
 		pit_time_start(PIT0);
 		camera_get_img();                                   //摄像头获取图像
 		LCD_PrintU16(80, 0, pit_time_get_us(PIT0));
+
 		//解压图像
 		img_extract(img, imgbuff, CAMERA_SIZE);        //往上位机中传数据无需转码
 		LCD_PrintU16(80, 2, pit_time_get_us(PIT0));
+
 		//发送图像到上位机
-		sendimg(img, CAMERA_W * CAMERA_H);                //发送到上位机
+		sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
+		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 		LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
 		// unsigned char * bmp;
+
 		i = pit_time_get_us(PIT0);
 		one(img);
 		LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
-
-		// LCD_CLS();//清屏
-		// Draw_BMP(0, 0, 80, 60, imgbuff);
 
 	}
 }
@@ -141,15 +142,11 @@ void sendimg(uint8 *imgaddr, uint32 imgsize)
 }
 void sendimg_eSmartCameraCar(uint8 *imgaddr, uint32 imgsize)
 {
-#define CMD_WARE     1
-	uint8 cmdf[2] = {CMD_WARE, ~CMD_WARE};    //山外上位机 使用的命令
-	uint8 cmdr[2] = {~CMD_WARE, CMD_WARE};    //山外上位机 使用的命令
+	uint8 cmd[4] = {0, 255, 1, 0};
 
-	uart_putbuff(VCAN_PORT, cmdf, sizeof(cmdf));    //先发送命令
+	uart_putbuff(VCAN_PORT, cmd, sizeof(cmd));    //先发送命令
 
 	uart_putbuff(VCAN_PORT, imgaddr, imgsize); //再发送图像
-
-	uart_putbuff(VCAN_PORT, cmdr, sizeof(cmdr));    //先发送命令
 }
 
 /*!
