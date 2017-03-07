@@ -1,18 +1,18 @@
- /*!
-  *     COPYRIGHT NOTICE
-  *     Copyright (c) 2014,山外科技
-  *     All rights reserved.
-  *     技术讨论：山外论坛 http://www.vcan123.com
-  *
-  *     除注明出处外，以下所有内容版权均属山外科技所有，未经允许，不得用于商业用途，
-  *     修改内容时必须保留山外科技的版权声明。
-  *
-  * @file       VCAN_LED.c
-  * @brief      led驱动函数实现
-  * @author     山外科技
-  * @version    v5.2
-  * @date       2014-10-4
-  */
+/*!
+ *     COPYRIGHT NOTICE
+ *     Copyright (c) 2014,山外科技
+ *     All rights reserved.
+ *     技术讨论：山外论坛 http://www.vcan123.com
+ *
+ *     除注明出处外，以下所有内容版权均属山外科技所有，未经允许，不得用于商业用途，
+ *     修改内容时必须保留山外科技的版权声明。
+ *
+ * @file       VCAN_LED.c
+ * @brief      led驱动函数实现
+ * @author     山外科技
+ * @version    v5.2
+ * @date       2014-10-4
+ */
 
 /*
  * 包含头文件
@@ -26,7 +26,7 @@
 /*
  * 定义LED 编号对应的管脚
  */
-PTXn_e LED_PTxn[LED_MAX] = {PTB20,PTB21,PTB22,PTB23};
+PTXn_e LED_PTxn[LED_MAX] = {PTC0, PTA17, PTD15, PTE26};
 
 
 /*!
@@ -37,19 +37,19 @@ PTXn_e LED_PTxn[LED_MAX] = {PTB20,PTB21,PTB22,PTB23};
  */
 void    led_init(LED_e ledn)
 {
-    if(ledn < LED_MAX)
+  if (ledn < LED_MAX)
+  {
+    gpio_init(LED_PTxn[ledn], GPO, LED_OFF);
+  }
+  else
+  {
+    ledn = LED_MAX;
+    while (ledn--)
     {
-        gpio_init(LED_PTxn[ledn],GPO,LED_OFF);
+      gpio_init(LED_PTxn[ledn], GPO, LED_OFF);
     }
-    else
-    {
-        ledn = LED_MAX;
-        while(ledn--)
-        {
-            gpio_init(LED_PTxn[ledn],GPO,LED_OFF);
-        }
 
-    }
+  }
 }
 
 
@@ -61,20 +61,20 @@ void    led_init(LED_e ledn)
  *  @since      v5.2
  *  Sample usage:       led (LED0,LED_ON);    //点亮 LED0
  */
-void    led(LED_e ledn,LED_status status)
+void    led(LED_e ledn, LED_status status)
 {
-    if(ledn < LED_MAX)
+  if (ledn < LED_MAX)
+  {
+    gpio_set(LED_PTxn[ledn], status);
+  }
+  else
+  {
+    ledn = LED_MAX;
+    while (ledn--)
     {
-        gpio_set(LED_PTxn[ledn],status);
+      gpio_set(LED_PTxn[ledn], status);
     }
-    else
-    {
-        ledn = LED_MAX;
-        while(ledn--)
-        {
-            gpio_set(LED_PTxn[ledn],status);
-        }
-    }
+  }
 }
 
 /*!
@@ -85,16 +85,16 @@ void    led(LED_e ledn,LED_status status)
  */
 void led_turn(LED_e ledn)
 {
-    if(ledn < LED_MAX)
+  if (ledn < LED_MAX)
+  {
+    gpio_turn(LED_PTxn[ledn]);
+  }
+  else
+  {
+    ledn = LED_MAX;
+    while (ledn--)
     {
-        gpio_turn(LED_PTxn[ledn]);
+      gpio_turn(LED_PTxn[ledn]);
     }
-    else
-    {
-        ledn = LED_MAX;
-        while(ledn--)
-        {
-            gpio_turn(LED_PTxn[ledn]);
-        }
-    }
+  }
 }
