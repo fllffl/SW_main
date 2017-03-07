@@ -40,14 +40,32 @@
 #define MOTOR_HZ    (20*1000)
 #endif
 
-enum point
+struct PointStruct
 {
-	none,
-	up,
-	down
+	uint8 row;
+	uint8 col;
+	uint8 pointType;
 };
 
-struct linepointstruct
+struct CenterPointStruct
+{
+	uint8 row;
+	uint8 col;
+	uint8 diuxianNum;//0,1,2,3 分别代表丢线0,1,2和开始三行中线
+};
+
+enum TiaobianPointEnum
+{
+	NONE,
+	LEFT,//上升沿
+	RIGHT,//下降沿
+	LEFTBLACK,//左边线,存在黑点
+	RIGHTBLACK,//右边线，存在黑点
+	LEFTLOST,//左边线，丢边
+	RIGHTLOST,//右边线，丢边
+};
+
+struct LinePointStruct
 {
 	uint8 upPoint[5];
 	uint8 downPoint[5];
@@ -107,13 +125,14 @@ void  main(void)
 		LCD_PrintU16(80, 2, pit_time_get_us(PIT0));
 
 		//发送图像到上位机
-		sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
-		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		//sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
+		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 		LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
 		// unsigned char * bmp;
 
 		i = pit_time_get_us(PIT0);
-		one(img);
+		two(img);
+		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 		LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
 
 	}
@@ -217,7 +236,7 @@ void DMA0_IRQHandler()
 void one(uint8 *img)
 {
 
-	struct linepointstruct changepoint[CAMERA_H] = {{0}, {0}, 1, 1};
+	struct LinePointStruct changepoint[CAMERA_H] = {{0}, {0}, 1, 1};
 	uint8 ii, j;
 	int16 i;
 
@@ -233,8 +252,8 @@ void one(uint8 *img)
 	uint8 middleEndFlag = 0;
 
 	uint8 leftpoint[CAMERA_H];
-	uint8 rightpoint[CAMERA_H] ;
-	uint8 middlePoint[CAMERA_H] = {0} ;
+	uint8 rightpoint[CAMERA_H];
+	uint8 middlePoint[CAMERA_H] = {0};
 	//中线处理函数
 	int16 middlechange[CAMERA_H] = {0};
 	int xielv;
@@ -248,20 +267,20 @@ void one(uint8 *img)
 		if (ii >= CAMERA_H * CAMERA_W - 1) break;
 		if ((i + 1) % CAMERA_W == 0 )
 		{
-			if (!img[i] && changepoint[ii].upNum < 5)
+			if (!img[i] == 1 && changepoint[ii].upNum < 5)
 				changepoint[ii].upPoint[changepoint[ii].upNum++] = i % CAMERA_W;
 			continue;
 		}
 		if (i % CAMERA_W == 0 )
 		{
-			if (!img[i] && changepoint[ii].downNum < 5)
+			if (!img[i] == 1 && changepoint[ii].downNum < 5)
 				changepoint[ii].downPoint[changepoint[ii].downNum++] = i % CAMERA_W;
 			ii++;
 			continue;
 		}
 		if (img[i] != img[i + 1] && img[i] == img[i - 1])
 		{
-			if (img[i] && changepoint[ii].downNum < 5)
+			if (img[i] == 1 && changepoint[ii].downNum < 5)
 				changepoint[ii].downPoint[changepoint[ii].downNum++] = i % CAMERA_W;
 			else if (changepoint[ii].upNum < 5)
 				changepoint[ii].upPoint[changepoint[ii].upNum++] = i % CAMERA_W;
@@ -377,8 +396,178 @@ void one(uint8 *img)
 	ftm_pwm_duty(S3010_FTM, S3010_CH, i);
 }
 
-void two(uint8 *src) {
-	enum point img[CAMERA_H][CAMERA_W];
+void two(uint8 *src)
+{
+
+	enum TiaobianPointEnum imgchange[CAMERA_H][CAMERA_W];
+	uint8 i;
+	uint16 ii, j;
+
+	uint8 canFindLeftPointFlag = 0;
+	uint8 canFindRightPointFlag = 0;
+	uint8 canFindDownPointFlag = 0;
+
+	struct PointStruct leftPoint[CAMERA_H];
+	struct PointStruct rightPoint[CAMERA_H];
+	struct CenterPointStruct centerPoint[CAMERA_H];
+
+	// 断线标志,必须初始化
+	uint8 leftStartFlag = 0;
+	uint8 rightStartFlag = 0;
+	uint8 leftEndFlag = 0;
+	uint8 rightEndFlag = 0;
+	// 中线断线标志位，开始与结束
+	uint8 middleStartFlag = 2;
+	uint8 middleEndFlag = 0;
+
+
+	/*****************************先进行图像分析，然后记录各种标志位************************************/
+
+	/*****************************提取跳变点************************************/
+	//顺序已经颠倒过来了
+	for (ii = 0, i = CAMERA_H - 1, j = 0; ii < CAMERA_H * CAMERA_W; ii++)
+	{
+		if (i >= CAMERA_H || j >= CAMERA_W) break;
+		if (j == 0)
+		{
+			if (src[ii] == 1) imgchange[i][j] = LEFTBLACK;
+			else imgchange[i][j] = LEFTLOST;
+			j++;
+			continue;
+		}
+		else if (j == CAMERA_W - 1)
+		{
+			if (src[ii] == 1) imgchange[i][j] = RIGHTBLACK;
+			else imgchange[i][j] = RIGHTLOST;
+			j = 0;
+			i--;
+			continue;
+		}
+		else if (src[ii] != src[ii - 1] && src[ii] == src[ii + 1] && src[ii] == src[ii + 2])
+		{
+			if (src[ii] == 1) imgchange[i][j] = RIGHT;
+			else imgchange[i][j] = LEFT;
+			j++;
+			continue;
+		}
+		else
+		{
+			imgchange[i][j] = NONE;
+			j++;
+		}
+	}
+	ii = 0;
+	//跳变点上位机显示
+	// for (ii = 0, i = 0, j = 0; ii < CAMERA_H * CAMERA_W; ii++)
+	// {
+	// 	if (imgchange[i][j] == LEFT)
+	// 		src[ii] = 255;
+	// 	else
+	// 		src[ii] = 0;
+	// 	j++;
+	// 	if (j == CAMERA_W)
+	// 	{
+	// 		i++; j = 0;
+	// 	}
+	// }
+
+
+	/**************************************检测前三行，排除干扰因素*************************/
+	// 方法是：取中点算前三行的平均值
+	for (i = 0; i < 3; i++)
+	{
+		//向右寻边线
+		for (j = CAMERA_W / 2; j < CAMERA_W; j++)
+		{
+			if (imgchange[i][j] == RIGHT || imgchange[i][j] == RIGHTLOST || imgchange[i][j] == RIGHTBLACK)
+			{
+				rightPoint[i].row = i;
+				rightPoint[i].col = j;
+				rightPoint[i].pointType = imgchange[i][j];
+				if (rightStartFlag == 0)rightStartFlag = i;
+				break;
+			}
+		}
+
+		// 向左寻线
+		for (j = CAMERA_W / 2; j >= 0; j--)
+		{
+			if (imgchange[i][j] == LEFT || imgchange[i][j] == LEFTLOST || imgchange[i][j] == LEFTBLACK)
+			{
+				leftPoint[i].row = i;
+				leftPoint[i].col = j;
+				leftPoint[i].pointType = imgchange[i][j];
+				if (leftStartFlag == 0)leftStartFlag = i;
+				break;
+			}
+			if (j == 0)break;
+		}
+		//不管如何，中心点都是要算出来的
+		centerPoint[i].col = (rightPoint[i].col + leftPoint[i].col) / 2;
+		centerPoint[i].row = i;
+		centerPoint[i].diuxianNum = 3;
+		if (i > 0)
+		{
+			centerPoint[i].col = (centerPoint[i].col + centerPoint[i - 1].col) / 2;
+			centerPoint[i].diuxianNum = 3;
+		}
+		// // 如果是第一次，那么就继续循环
+		// if (i < 2)	continue;
+
+		// //如果两边都不出现转折，则认为取到了合适的底线
+		// if ((leftPoint[i].col - leftPoint[i - 1].col) * (leftPoint[i - 1].col - leftPoint[i - 2].col) >= 0 && (rightPoint[i].col - rightPoint[i - 1].col) * (rightPoint[i - 1].col - rightPoint[i - 2].col) >= 0)
+		// {
+		// 	// canFindDownPointFlag = 1;
+		// 	// leftStartFlag = 3;
+		// 	// rightStartFlag = 3;
+		// 	break;
+		// }
+	}
+
+	/**********************************************处理剩下的行数，确保边线的准确性***************/
+	//处理方法：
+	//从上一行的中心开始寻点，范围为上一行的左右边线+-20；
+	for (i = 3; i < CAMERA_H; i++)
+	{
+		// 向右寻线
+		for (j = centerPoint[i - 1].col; j < rightPoint[i - 1].col + 20; j++)
+		{
+			if (imgchange[i][j] == RIGHT || imgchange[i][j] == RIGHTLOST || imgchange[i][j] == RIGHTBLACK)
+			{
+				rightPoint[i].row = i;
+				rightPoint[i].col = j;
+				rightPoint[i].pointType = imgchange[i][j];
+				if (rightStartFlag != 0 && rightEndFlag == 0 && imgchange[i][j] == RIGHTLOST)rightEndFlag = i;
+				if (imgchange[i][j] == RIGHT && rightStartFlag == 0)rightStartFlag = i;
+				break;
+			}
+		}
+
+		// 向左寻线
+		for (j = centerPoint[i - 1].col + 1; j >= leftPoint[i - 1].col - 20; j--)
+		{
+			if (imgchange[i][j] == LEFT || imgchange[i][j] == LEFTLOST || imgchange[i][j] == LEFTBLACK)
+			{
+				leftPoint[i].row = i;
+				leftPoint[i].col = j;
+				leftPoint[i].pointType = imgchange[i][j];
+				if (leftStartFlag != 0 && leftEndFlag == 0 && imgchange[i][j] == LEFTLOST)leftEndFlag = i;
+				if (imgchange[i][j] == LEFT && leftStartFlag == 0)leftStartFlag = i;
+				break;
+			}
+			if (j == 0)break;
+		}
+
+		//如果左边线与右边线相差不到2个格，则认为左右边线相交，跳出循环，并记录行数到middleEndFlag中
+		centerPoint[i].col = (rightPoint[i].col + leftPoint[i].col) / 2 ;
+		centerPoint[i].row = i;
+		middleEndFlag = i;
+		if (abs(rightPoint[i].col - leftPoint[i].col) < 3) break;
+	}
+	for (i = middleStartFlag; i <= middleEndFlag; i++)
+	{
+		src[centerPoint[i].col + (CAMERA_H - 1 - centerPoint[i].row )* CAMERA_W] = 0;
+	}
 
 
 }
