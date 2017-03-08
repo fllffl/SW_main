@@ -17,7 +17,7 @@ TracePortSize=0x00000004
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
 [DebugChecksum]
-Checksum=1478477608
+Checksum=1612075461
 [CallStack]
 ShowArgs=0
 [Disassembly]
@@ -33,9 +33,6 @@ Count=0
 LoggingEnabled=_ 0
 LogFile=_ ""
 Category=_ 0
-[TermIOLog]
-LoggingEnabled=_ 0
-LogFile=_ ""
 [Aliases]
 Count=0
 SuppressDialog=0
@@ -47,3 +44,6 @@ Mode=1
 Graph=0
 Symbiont=0
 Exclusions=
+[TermIOLog]
+LoggingEnabled=_ 0
+LogFile=_ ""

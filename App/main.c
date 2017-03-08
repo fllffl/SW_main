@@ -49,9 +49,8 @@ struct PointStruct
 
 struct CenterPointStruct
 {
-	uint8 row;
-	uint8 col;
-	uint8 diuxianNum;//0,1,2,3 分别代表丢线0,1,2和开始三行中线
+	int16 row;
+	int16 col;
 };
 
 enum TiaobianPointEnum
@@ -83,7 +82,9 @@ void img_extract(uint8 *dst, uint8 *src, uint32 srclen);
 void PORTA_IRQHandler();
 void DMA0_IRQHandler();
 void one(uint8 *img);
-void two(uint8 *img);
+int16 two(uint8 *img);
+void duoji(int16 loca_error, uint32 time);
+int16 loca_lasterror;
 
 /*!
  *  @brief      main函数
@@ -93,15 +94,16 @@ void two(uint8 *img);
  */
 void  main(void)
 {
+	int16 loca_error;
 	uint32 i;
 	//初始化摄像头
 	camera_init(imgbuff);
-	ftm_pwm_init(S3010_FTM, S3010_CH, S3010_HZ, 148);    //初始化 舵机 PWM,
+	ftm_pwm_init(S3010_FTM, S3010_CH, S3010_HZ, 1480);    //初始化 舵机 PWM,
 
 	ftm_pwm_init(MOTOR_FTM, MOTOR1_PWM, MOTOR_HZ, 0);    //初始化 电机 PWM
-	ftm_pwm_init(MOTOR_FTM, MOTOR2_PWM, MOTOR_HZ, 15);    //初始化 电机 PWM
+	ftm_pwm_init(MOTOR_FTM, MOTOR2_PWM, MOTOR_HZ, 20);    //初始化 电机 PWM
 	ftm_pwm_init(MOTOR_FTM, MOTOR3_PWM, MOTOR_HZ, 0);    //初始化 电机 PWM
-	ftm_pwm_init(MOTOR_FTM, MOTOR4_PWM, MOTOR_HZ, 15);    //初始化 电机 PWM
+	ftm_pwm_init(MOTOR_FTM, MOTOR4_PWM, MOTOR_HZ, 20);    //初始化 电机 PWM
 	//初始化LCD
 	LCD_Init();
 	// LCD_CLS();//清屏
@@ -126,14 +128,15 @@ void  main(void)
 
 		//发送图像到上位机
 		//sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
-		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 		LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
 		// unsigned char * bmp;
 
 		i = pit_time_get_us(PIT0);
-		two(img);
-		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		loca_error = two(img);
+		duoji(loca_error, pit_time_get_us(PIT0));
 		LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
+		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 
 	}
 }
@@ -396,7 +399,7 @@ void one(uint8 *img)
 	ftm_pwm_duty(S3010_FTM, S3010_CH, i);
 }
 
-void two(uint8 *src)
+int16 two(uint8 *src)
 {
 
 	enum TiaobianPointEnum imgchange[CAMERA_H][CAMERA_W];
@@ -412,13 +415,19 @@ void two(uint8 *src)
 	struct CenterPointStruct centerPoint[CAMERA_H];
 
 	// 断线标志,必须初始化
-	uint8 leftStartFlag = 0;
-	uint8 rightStartFlag = 0;
-	uint8 leftEndFlag = 0;
-	uint8 rightEndFlag = 0;
+	uint8 leftStartFlag = -1;
+	uint8 rightStartFlag = -1;
+	uint8 leftEndFlag = -1;
+	uint8 rightEndFlag = -1;
 	// 中线断线标志位，开始与结束
 	uint8 middleStartFlag = 2;
 	uint8 middleEndFlag = 0;
+
+
+	//中线处理数据
+	short count1, count2;
+	int16 loca_error;
+
 
 
 	/*****************************先进行图像分析，然后记录各种标志位************************************/
@@ -484,7 +493,13 @@ void two(uint8 *src)
 				rightPoint[i].row = i;
 				rightPoint[i].col = j;
 				rightPoint[i].pointType = imgchange[i][j];
-				if (rightStartFlag == 0)rightStartFlag = i;
+				//如果检测到边界非空白并且rightStartFlag==-1即未使用过，则将之赋值为i;
+				if (imgchange[i][j] == RIGHTBLACK && rightStartFlag == -1)rightStartFlag = i;
+				else if (imgchange[i][j] == RIGHTLOST && rightStartFlag != -1 && rightEndFlag == -1)
+				{
+					if (i == CAMERA_H - 1)rightEndFlag = i;
+					else if (imgchange[i + 1][j] == RIGHTLOST)rightEndFlag = i;
+				}
 				break;
 			}
 		}
@@ -497,7 +512,13 @@ void two(uint8 *src)
 				leftPoint[i].row = i;
 				leftPoint[i].col = j;
 				leftPoint[i].pointType = imgchange[i][j];
-				if (leftStartFlag == 0)leftStartFlag = i;
+				//如果检测到边界非空白并且leftStartFlag==-1即未使用过，则将之赋值为i;
+				if (imgchange[i][j] == LEFTBLACK && leftStartFlag == -1)leftStartFlag = i;
+				else if (imgchange[i][j] == LEFTLOST && leftStartFlag != -1 && leftEndFlag == -1)
+				{
+					if (i == CAMERA_H - 1)leftEndFlag = i;
+					else if (imgchange[i + 1][j] == LEFTLOST)leftEndFlag = i;
+				}
 				break;
 			}
 			if (j == 0)break;
@@ -505,11 +526,9 @@ void two(uint8 *src)
 		//不管如何，中心点都是要算出来的
 		centerPoint[i].col = (rightPoint[i].col + leftPoint[i].col) / 2;
 		centerPoint[i].row = i;
-		centerPoint[i].diuxianNum = 3;
 		if (i > 0)
 		{
 			centerPoint[i].col = (centerPoint[i].col + centerPoint[i - 1].col) / 2;
-			centerPoint[i].diuxianNum = 3;
 		}
 		// // 如果是第一次，那么就继续循环
 		// if (i < 2)	continue;
@@ -532,13 +551,18 @@ void two(uint8 *src)
 		// 向右寻线
 		for (j = centerPoint[i - 1].col; j < rightPoint[i - 1].col + 20; j++)
 		{
-			if (imgchange[i][j] == RIGHT || imgchange[i][j] == RIGHTLOST || imgchange[i][j] == RIGHTBLACK)
+			if (j >= CAMERA_W - 1 || imgchange[i][j] == RIGHT || imgchange[i][j] == RIGHTLOST || imgchange[i][j] == RIGHTBLACK)
 			{
 				rightPoint[i].row = i;
 				rightPoint[i].col = j;
 				rightPoint[i].pointType = imgchange[i][j];
-				if (rightStartFlag != 0 && rightEndFlag == 0 && imgchange[i][j] == RIGHTLOST)rightEndFlag = i;
-				if (imgchange[i][j] == RIGHT && rightStartFlag == 0)rightStartFlag = i;
+				// 如果检测到边界非空白并且rightStartFlag==-1即未使用过，则将之赋值为i;
+				if (imgchange[i][j] == RIGHTBLACK && rightStartFlag == -1)rightStartFlag = i;
+				else if (imgchange[i][j] == RIGHTLOST && rightStartFlag != -1 && rightEndFlag == -1 )
+				{
+					if (i == CAMERA_H - 1)rightEndFlag = i;
+					else if (imgchange[i + 1][j] == RIGHTLOST)rightEndFlag = i;
+				}
 				break;
 			}
 		}
@@ -551,8 +575,13 @@ void two(uint8 *src)
 				leftPoint[i].row = i;
 				leftPoint[i].col = j;
 				leftPoint[i].pointType = imgchange[i][j];
-				if (leftStartFlag != 0 && leftEndFlag == 0 && imgchange[i][j] == LEFTLOST)leftEndFlag = i;
-				if (imgchange[i][j] == LEFT && leftStartFlag == 0)leftStartFlag = i;
+				//如果检测到边界非空白并且leftStartFlag==-1即未使用过，则将之赋值为i;
+				if (imgchange[i][j] == LEFTBLACK && leftStartFlag == -1)leftStartFlag = i;
+				else if (imgchange[i][j] == LEFTLOST && leftStartFlag != -1 && leftEndFlag == -1 )
+				{
+					if (i == CAMERA_H - 1)leftEndFlag = i;
+					else if (imgchange[i + 1][j] == LEFTLOST)leftEndFlag = i;
+				}
 				break;
 			}
 			if (j == 0)break;
@@ -562,7 +591,7 @@ void two(uint8 *src)
 		centerPoint[i].col = (rightPoint[i].col + leftPoint[i].col) / 2 ;
 		centerPoint[i].row = i;
 		middleEndFlag = i;
-		if (abs(rightPoint[i].col - leftPoint[i].col) < 3) break;
+		if (abs(rightPoint[i].col - leftPoint[i].col) < 20) break;
 	}
 	for (i = middleStartFlag; i <= middleEndFlag; i++)
 	{
@@ -570,5 +599,54 @@ void two(uint8 *src)
 	}
 
 
+	/********************************提取中线后，使用加权算法，处理中线；并判断各种情况，实现不同路况下的控制操作*************************/
+//选取的角度处理方式的要求：滤波性，近似指数曲线
+	//每行加权处理，最高行加权为3，最底行加权为1，平均到每行上的（3-1）/CAMERA_H;
+	for (i = 0; i <= middleEndFlag; i++)
+	{
+		centerPoint[i].col = (centerPoint[i].col - (CAMERA_W / 2)) * (1 + i * 2 / CAMERA_H);
+	}
+	//每20行加权处理
+	//
+	//选取前40行数据进行处理；
+	if (middleEndFlag >= 30)
+	{
+		count1 = 0;
+		for (i = 0; i < 30; i++)
+			count1 = count1 + centerPoint[i].col;
+		count1 = count1 * 4 / 30;
+		count2 = 0;
+		for (i = 30; i <= middleEndFlag; i++)
+			count2 = count2 + centerPoint[i].col;
+		count2 = count2 * 1 / (middleEndFlag - 29);
+		loca_error = (count1 + count2) / 5;
+	}
+	else
+	{
+		count1 = 0;
+		for (i = 0; i <= middleEndFlag; i++)
+			count1 = count1 + centerPoint[i].col;
+		count1 = count1 / (middleEndFlag + 1);
+		loca_error = count1;
+	}
+
+	return loca_error;
+}
+void duoji(int16 loca_error, uint32 time)
+{
+	uint16 loca_Kp;
+	int loca_out;
+	uint16 loca_Td = 0;
+
+	loca_Kp = (loca_error * loca_error) / 2;
+	loca_out = loca_Kp * (loca_error + loca_Td / time * (loca_error - loca_lasterror));
+	loca_lasterror = loca_error;
+	loca_out = loca_out / 16 / 16 * -2;
+	LCD_PrintU16(0, 4, loca_out+1000);
+	if (loca_out > 150)loca_out = 150;
+	if (loca_out < -150)loca_out = -150;
+	loca_out = loca_out + 1480;
+	LCD_PrintU16(0, 6, loca_out);
+	ftm_pwm_duty(S3010_FTM, S3010_CH, loca_out); //初始化 舵机 PWM,
 }
 

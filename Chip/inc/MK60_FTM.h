@@ -59,14 +59,14 @@ typedef enum
     FTM_PS_128,
 
     FTM_PS_MAX,
-}FTM_PS_e;      //分频值 =  (1<< FTM_PS_e) ,例如  FTM_PS_2  对应的 分频值 = (1<<FTM_PS_2) = (1<<1) = 2
+} FTM_PS_e;     //分频值 =  (1<< FTM_PS_e) ,例如  FTM_PS_2  对应的 分频值 = (1<<FTM_PS_2) = (1<<1) = 2
 
 extern FTM_MemMapPtr FTMN[FTM_MAX];
 
 /*********************** PWM **************************/
 
 #define FTM0_PRECISON 100u     //定义占空比精度，100即精度为1%，1000u则精度为0.1%，用于占空比 duty 形参传入，即占空比为 duty/FTM_PRECISON
-#define FTM1_PRECISON 1000u     //定义占空比精度，100即精度为1%，1000u则精度为0.1%，用于占空比 duty 形参传入，即占空比为 duty/FTM_PRECISON
+#define FTM1_PRECISON 10000u     //定义占空比精度，100即精度为1%，1000u则精度为0.1%，用于占空比 duty 形参传入，即占空比为 duty/FTM_PRECISON
 #define FTM2_PRECISON 100u     //定义占空比精度，100即精度为1%，1000u则精度为0.1%，用于占空比 duty 形参传入，即占空比为 duty/FTM_PRECISON
 #define FTM3_PRECISON 100u     //定义占空比精度，100即精度为1%，1000u则精度为0.1%，用于占空比 duty 形参传入，即占空比为 duty/FTM_PRECISON
 
@@ -86,7 +86,7 @@ typedef enum
 } FTM_Input_cfg;
 
 
-extern void     ftm_input_init  (FTMn_e, FTM_CHn_e, FTM_Input_cfg,FTM_PS_e ps);     //输入捕捉初始化函数
+extern void     ftm_input_init  (FTMn_e, FTM_CHn_e, FTM_Input_cfg, FTM_PS_e ps);    //输入捕捉初始化函数
 extern uint16   ftm_input_get   (FTMn_e, FTM_CHn_e);                                //输入捕捉模式下，读取捕捉事件发生时的计数器值(根据两次捕捉之间的差值可判断周期频率)
 extern void     ftm_input_clean (FTMn_e );                                          //清空计数器的值
 
