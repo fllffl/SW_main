@@ -79,6 +79,7 @@ uint8 img[CAMERA_W * CAMERA_H];                         //由于鹰眼摄像头是一字节
 void sendimg(uint8 *imgaddr, uint32 imgsize);          //发送图像到上位机
 void sendimg_eSmartCameraCar(uint8 *imgaddr, uint32 imgsize); //发送图像到eSmartCameraCar上位机
 void img_extract(uint8 *dst, uint8 *src, uint32 srclen);
+void img_reextract(uint8 *dst, uint8 *src, uint32 srclen);
 void PORTA_IRQHandler();
 void DMA0_IRQHandler();
 void one(uint8 *img);
@@ -134,9 +135,11 @@ void  main(void)
 
 		i = pit_time_get_us(PIT0);
 		loca_error = two(img);
-		duoji(loca_error, pit_time_get_us(PIT0));
+		//duoji(loca_error, pit_time_get_us(PIT0));
 		LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
-		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		img_reextract(imgbuff, img, CAMERA_SIZE);
+		sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);
+		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 
 	}
 }
@@ -198,6 +201,31 @@ void img_extract(uint8 *dst, uint8 *src, uint32 srclen)
 	}
 }
 
+/*!
+ *  @brief      二值化图像压缩（空间 换 时间 解压）
+ *  @param      dst             图像压缩目的地址
+ *  @param      src             图像压缩源地址
+ *  @param      srclen          二值化图像的占用空间大小
+ *  @since      v5.0            img_extract(img, imgbuff,CAMERA_SIZE);
+ *  Sample usage:   sendimg(imgbuff, CAMERA_W * CAMERA_H);                    //发送到上位机
+ */
+void img_reextract(uint8 *dst, uint8 *src, uint32 srclen)
+{
+	uint8 colour[2] = {255, 1}; //0 和 1 分别对应的颜色
+	//注：山外的摄像头 0 表示 白色，1表示 黑色
+	uint8 tmpsrc;
+	uint8 i = 0;
+	srclen = srclen / 8;
+	while (srclen --)
+	{
+		for (i = 0; i < 8; i++)
+		{
+			if (*src++ = 255) * dst = *dst & 0x0 << (7 - i);
+			else *dst = *dst | 0x1 << (7 - i);
+		}
+		dst++;
+	}
+}
 /*!
  *  @brief      PORTA中断服务函数
  *  @since      v5.0
@@ -593,6 +621,8 @@ int16 two(uint8 *src)
 		middleEndFlag = i;
 		if (abs(rightPoint[i].col - leftPoint[i].col) < 20) break;
 	}
+
+	// 将中线加进img图像中
 	for (i = middleStartFlag; i <= middleEndFlag; i++)
 	{
 		src[centerPoint[i].col + (CAMERA_H - 1 - centerPoint[i].row )* CAMERA_W] = 0;
@@ -642,7 +672,7 @@ void duoji(int16 loca_error, uint32 time)
 	loca_out = loca_Kp * (loca_error + loca_Td / time * (loca_error - loca_lasterror));
 	loca_lasterror = loca_error;
 	loca_out = loca_out / 16 / 16 * -2;
-	LCD_PrintU16(0, 4, loca_out+1000);
+	LCD_PrintU16(0, 4, loca_out + 1000);
 	if (loca_out > 150)loca_out = 150;
 	if (loca_out < -150)loca_out = -150;
 	loca_out = loca_out + 1480;
