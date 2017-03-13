@@ -17,14 +17,19 @@ TracePortSize=0x00000004
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
 [DebugChecksum]
-Checksum=1213166781
+Checksum=1308803337
 [CallStack]
 ShowArgs=0
 [Disassembly]
 MixedMode=1
-[Trace1]
+[CallStackLog]
 Enabled=0
-ShowSource=1
+[DriverProfiling]
+Enabled=0
+Mode=1
+Graph=0
+Symbiont=0
+Exclusions=
 [Disassemble mode]
 mode=0
 [Breakpoints2]
@@ -36,14 +41,6 @@ Category=_ 0
 [Aliases]
 Count=0
 SuppressDialog=0
-[CallStackLog]
-Enabled=0
-[DriverProfiling]
-Enabled=0
-Mode=1
-Graph=0
-Symbiont=0
-Exclusions=
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""

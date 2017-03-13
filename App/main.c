@@ -121,25 +121,27 @@ void  main(void)
 		//获取图像
 		pit_time_start(PIT0);
 		camera_get_img();                                   //摄像头获取图像
-		LCD_PrintU16(80, 0, pit_time_get_us(PIT0));
+		//LCD_PrintU16(80, 0, pit_time_get_us(PIT0));
 
 		//解压图像
 		img_extract(img, imgbuff, CAMERA_SIZE);        //往上位机中传数据无需转码
-		LCD_PrintU16(80, 2, pit_time_get_us(PIT0));
+		//LCD_PrintU16(80, 2, pit_time_get_us(PIT0));
 
 		//发送图像到上位机
 		//sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);              //发送到上位机
 		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
-		LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
+		//LCD_PrintU16(80, 4, pit_time_get_us(PIT0));
 		// unsigned char * bmp;
 
-		i = pit_time_get_us(PIT0);
+		//i = pit_time_get_us(PIT0);
 		loca_error = two(img);
-		//duoji(loca_error, pit_time_get_us(PIT0));
-		LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
-		img_reextract(imgbuff, img, CAMERA_SIZE);
-		sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);
-		sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
+		duoji(loca_error, pit_time_get_us(PIT0));
+		//LCD_PrintU16(0, 0, pit_time_get_us(PIT0) - i);
+		//i = pit_time_get_us(PIT0);
+		//img_reextract(imgbuff, img, CAMERA_SIZE);
+		//sendimg(imgbuff, CAMERA_W * CAMERA_H / 8);
+		LCD_PrintU16(0, 2, pit_time_get_us(PIT0));
+		//sendimg_eSmartCameraCar(img, CAMERA_W * CAMERA_H);
 
 	}
 }
@@ -220,7 +222,7 @@ void img_reextract(uint8 *dst, uint8 *src, uint32 srclen)
 	{
 		for (i = 0; i < 8; i++)
 		{
-			if (*src++ = 255) * dst = *dst & 0x0 << (7 - i);
+			if (*src++ == 255)  *dst = *dst & 0x0 << (7 - i);
 			else *dst = *dst | 0x1 << (7 - i);
 		}
 		dst++;
@@ -494,6 +496,7 @@ int16 two(uint8 *src)
 		}
 	}
 	ii = 0;
+
 	//跳变点上位机显示
 	// for (ii = 0, i = 0, j = 0; ii < CAMERA_H * CAMERA_W; ii++)
 	// {
